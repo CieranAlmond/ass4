@@ -1,0 +1,13 @@
+(.devops) ubuntu:~/environment/DevOps_Microservices/project (master) ./run_kubernetes.sh 
+Error from server (AlreadyExists): pods "kibnov" already exists
+NAME           READY   STATUS    RESTARTS   AGE
+udacitymlapi   1/1     Running   0          3m42s
+Forwarding from 127.0.0.1:8000 -> 1025
+Handling connection for 8000
+
+Port: 8000
+{
+  "prediction": [
+    20.35373177134412
+  ]
+}
