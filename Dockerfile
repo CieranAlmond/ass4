@@ -7,7 +7,7 @@ WORKDIR /app
 COPY . app.py /app/
 
 ## Step 3:
-hadolint ignore=DL3013
+#hadolint ignore=DL3013
 #hadolint Dockerfile --ignore DL4000
 RUN pip install --no-cache-dir -r requirements.txt
 
