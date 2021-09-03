@@ -1,20 +1,26 @@
-# Python CircleCI 2.0 configuration file
-#
-version: 2
+version: 2.1
+
+orbs:
+  aws-cli: circleci/aws-cli@1.4.0
+  aws-eks: circleci/aws-eks@1.0.3
+  kubernetes: circleci/kubernetes@0.11.2
+
 jobs:
-  build:
+
+  linting-testing:
     docker:
       - image: python:3.7.3-stretch
-
-    working_directory: ~/repo
-
     steps:
       - checkout
+      - attach_workspace:
+          at: .
 
+      # Download and cache dependencies
       - restore_cache:
           keys:
-            - v1-dependencies-{{ checksum "requirements.txt" }}
-            - v1-dependencies-
+          - v1-dependencies-{{ checksum "requirements.txt" }}
+          # fallback to using the latest cache if no exact match is found
+          - v1-dependencies-
 
       - run:
           name: install dependencies
@@ -22,15 +28,134 @@ jobs:
             python3 -m venv venv
             . venv/bin/activate
             make install
-            wget -O /bin/hadolint https://github.com/hadolint/hadolint/releases/download/v2.4.1/hadolint-Linux-x86_64 &&\
-            chmod +x /bin/hadolint
+            # Install hadolint
+            wget -O /bin/hadolint https://github.com/hadolint/hadolint/releases/download/v1.16.3/hadolint-Linux-x86_64 &&\
+                chmod +x /bin/hadolint
       - save_cache:
           paths:
             - ./venv
           key: v1-dependencies-{{ checksum "requirements.txt" }}
-
+        
+      # run lints!
       - run:
           name: run lint
           command: |
-            . venv/bin/activate 
-            make lint 
+            . venv/bin/activate
+            make lint
+      # run tests!
+      - run:
+          name: run tests
+          command: |
+            . venv/bin/activate
+            make test
+  build:
+    executor: aws-cli/default
+    steps:
+      - checkout
+      - aws-cli/setup
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y python3-pip python-dev
+      - run: sudo pip install --upgrade awscli
+      - run: aws --version
+
+      - run:
+          name: install kubectl
+          command: |
+            curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.20.4/2021-04-12/bin/linux/amd64/kubectl
+            chmod +x ./kubectl
+            mkdir -p $HOME/bin && cp ./kubectl $HOME/bin/kubectl && export PATH=$PATH:$HOME/bin
+            kubectl version --short --client
+      - run:
+          name: install eksctl
+          command: |
+             curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+             sudo mv /tmp/eksctl /usr/local/bin
+             kubectl version --short --client
+      - run:
+          name: login
+          command: |
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 186999742423.dkr.ecr.us-west-2.amazonaws.com
+      - setup_remote_docker
+
+      - run:
+          name: build docker
+          command: |
+            docker build -t udacity-capstone-project:${CIRCLE_WORKFLOW_ID:0:7} .
+            docker images
+      - run:
+          name: Push docker to ECR
+          command: |
+            docker tag udacity-capstone-project:${CIRCLE_WORKFLOW_ID:0:7} 186999742423.dkr.ecr.us-west-2.amazonaws.com/capstone:latest
+            docker push 186999742423.dkr.ecr.us-west-2.amazonaws.com/capstone:latest
+      - run:
+          name: Create EKS-Cluster
+          command: |
+            eksctl create cluster --name udacity-capstone --managed --node-type "t2.small" --nodes 2
+  deployment:
+    executor: aws-eks/python3
+    parameters:
+      cluster-name:
+        description: |
+          udacity-capstone
+        type: string
+    steps:
+      - checkout
+      - kubernetes/install
+      - aws-eks/update-kubeconfig-with-authenticator:
+          cluster-name: << parameters.cluster-name >>
+          install-kubectl: true
+      - kubernetes/create-or-update-resource:
+          get-rollout-status: true
+          resource-file-path: deployment/deployment.yml
+          resource-name: deployment/capstone-deployment
+
+  test-cluster:
+    executor: aws-eks/python3
+    parameters:
+      cluster-name:
+        description: |
+          udacity-capstone
+        type: string
+    steps:
+      - kubernetes/install
+      - aws-eks/update-kubeconfig-with-authenticator:
+          cluster-name: << parameters.cluster-name >>
+      - run:
+          name: Test cluster
+          command: |
+            kubectl get svc
+            kubectl get nodes
+            kubectl get deployment
+      
+workflows:
+  default:
+    jobs:
+      - linting-testing
+      - build:
+          requires: 
+            - linting-testing
+      - deployment:
+          cluster-name: udacity-capstone
+          requires:
+             - build
+      #- aws-eks/update-container-image:
+          #cluster-name: udacity-capstone
+          #container-image-updates: capstone-backend=186999742423.dkr.ecr.us-west-2.amazonaws.com/capstone:latest
+          #post-steps:
+              #- kubernetes/delete-resource:
+                  #resource-names: capstone-deployment
+                  #resource-types: deployment
+                  #wait: true
+          #record: true
+          #requires:
+              #- deployment
+          #resource-name: deployment/capstone-deployment
+      - test-cluster:
+          cluster-name: udacity-capstone
+          requires:
+              - deployment
+              #- aws-eks/update-container-image
+      - aws-eks/delete-cluster:
+          cluster-name: udacity-capstone
+          requires:
+            - test-cluster
