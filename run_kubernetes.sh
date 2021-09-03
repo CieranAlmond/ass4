@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Step 1:
-dockerpath="kibnov/container:latest"
+dockerpath="kibnov/diss:latest"
 
 # Step 2
 kubectl run kibnov \
