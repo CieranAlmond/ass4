@@ -73,8 +73,9 @@ jobs:
             echo "CIRCLE CI WORKFLOW ID ${CIRCLE_WORKFLOW_ID:0:7}"
             docker push kibnov/diss:${CIRCLE_WORKFLOW_ID:0:7}
             docker push kibnov/diss:latest
-            
-  - run:
+        
+        
+      - run:      
       name: Create EKS-Cluster
       command: |
         eksctl create cluster --name udacity-capstone --managed --node-type "t2.small" --nodes 2
