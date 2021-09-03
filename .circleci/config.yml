@@ -82,7 +82,7 @@ jobs:
           name: Set var
           command: |
             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.tar.gz"
-            unzip awscliv2.zip
+            unzip awscli-exe-linux-x86_64.zip
             sudo ./aws/install
             aws --version
             export clusters=$(aws eks list-clusters)
