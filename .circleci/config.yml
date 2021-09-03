@@ -89,10 +89,8 @@ jobs:
             if [[ $clusters == *"<< parameters.cluster-name >>"* ]]; then
               circleci-agent step halt
             fi
-      
-            
-            
-            eksctl create cluster --name udacity-capstone --managed --node-type "t2.small" --nodes 2
+      - aws-eks/create-cluster:
+          cluster-name: << parameters.cluster-name >>
 
   create-deployment:
     executor: aws-eks/python3
