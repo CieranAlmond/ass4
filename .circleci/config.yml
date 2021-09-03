@@ -7,7 +7,7 @@ orbs:
 
 jobs:
 
-  lint-testing:
+  linting-testing:
     docker:
       - image: python:3.7.3-stretch
     steps:
