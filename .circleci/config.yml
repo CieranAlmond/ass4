@@ -57,7 +57,7 @@ jobs:
             
           name: Build, test and push docker image
           command: |
-            docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PWD}
+            docker login -u ${kibnov} -p ${Mycatissobad}
             docker build -t kibnov/diss -t kibnov/diss:${CIRCLE_WORKFLOW_ID:0:7} .
             docker run -d --rm --name flaskapp -p 8000:8080 kibnov/diss:${CIRCLE_WORKFLOW_ID:0:7}
             sleep 5
