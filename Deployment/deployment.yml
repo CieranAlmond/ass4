@@ -1,13 +1,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: capstone-deployment
+  name: aws-capstone
+  labels:
+    app: aws-capstone
   namespace: default
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
-      app: web
+      app: aws-capstone
   strategy:
     rollingUpdate:
       maxSurge: 50%
@@ -16,11 +18,12 @@ spec:
   template:
     metadata:
       labels:
-        app: web
+        app: aws-capstone
     spec:
       containers:
-        - name: capstone-backend
-          image: 186999742423.dkr.ecr.us-west-2.amazonaws.com/capstone:latest
+        - image: kibnov/aws-capstone
+          imagePullPolicy: Always
+          name: aws-capstone
           ports:
             - containerPort: 5000
 
@@ -28,11 +31,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: capstone-service
+  name: aws-capstone
+  labels:
+    app: aws-capstone
 spec:
   type: LoadBalancer
   selector:
-    app: web
+    app: aws-capstone
   ports:
     - port: 5000
       targetPort: 5000
+      protocol: TCP
