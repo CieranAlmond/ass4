@@ -70,7 +70,7 @@ jobs:
       - run:
           name: login
           command: |
-            aws ecr get-login-password --region us-west-2 | docker login --username DOCKER_USERNAME --password-stdin 186999742423.dkr.ecr.us-west-2.amazonaws.com/capstone
+            aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 186999742423.dkr.ecr.us-west-2.amazonaws.com
       - setup_remote_docker
 
       - run:
