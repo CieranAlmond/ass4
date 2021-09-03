@@ -92,7 +92,7 @@ jobs:
       
             
             
-  #eksctl create cluster --name udacity-capstone --managed --node-type "t2.small" --nodes 2
+            eksctl create cluster --name udacity-capstone --managed --node-type "t2.small" --nodes 2
 
   create-deployment:
     executor: aws-eks/python3
