@@ -53,6 +53,10 @@ jobs:
     working_directory: ~/app
     steps:
       - checkout
+      - aws-cli/setup
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y python3-pip python-dev
+      - run: sudo pip install --upgrade awscli
       - run:
             
           name: Build, test and push docker image
@@ -70,17 +74,10 @@ jobs:
             docker push kibnov/diss:${CIRCLE_WORKFLOW_ID:0:7}
             docker push kibnov/diss:latest
             
-  create-cluster:
-    executor: aws-eks/python3
-    parameters:
-      cluster-name:
-        description: |
-          Name of the EKS cluster
-        type: string
-    steps:
-      - run: sudo pip install --upgrade awscli
-          command: |
-            eksctl create cluster --name aws-capstone --managed --node-type "t2.small" --nodes 2
+  - run:
+      name: Create EKS-Cluster
+      command: |
+        eksctl create cluster --name udacity-capstone --managed --node-type "t2.small" --nodes 2
       - aws-eks/create-cluster:
           cluster-name: << parameters.cluster-name >>
 
