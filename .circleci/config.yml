@@ -85,12 +85,7 @@ jobs:
             unzip awscliv2.zip
             sudo ./aws/install
             aws --version
-            export clusters=$(aws eks list-clusters)
-            if [[ $clusters == *"<< parameters.cluster-name >>"* ]]; then
-              circleci-agent step halt
-            fi
-      - aws-eks/create-cluster:
-          cluster-name: << parameters.cluster-name >>
+            eksctl create cluster --name udacity-capstone --managed --node-type "t2.small" --nodes 2
 
   create-deployment:
     executor: aws-eks/python3
