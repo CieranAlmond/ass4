@@ -78,7 +78,6 @@ jobs:
           Name of the EKS cluster
         type: string
     steps:
-      - run:
       - run: sudo pip install --upgrade awscli
           name: Set var
           command: |
