@@ -65,15 +65,11 @@ jobs:
             export url="http://localhost:8000"
             export response=$(curl -s $url)
             echo "This is response $response"
-            if [[ $response == *"Moustafa"* ]]; then
-              docker stop flaskapp
-            else
-              docker stop flaskapp
-              exit 1
-            fi
+            
             echo "CIRCLE CI WORKFLOW ID ${CIRCLE_WORKFLOW_ID:0:7}"
             docker push kibnov/diss:${CIRCLE_WORKFLOW_ID:0:7}
             docker push kibnov/diss:latest
+            
   create-cluster:
     executor: aws-eks/python3
     parameters:
