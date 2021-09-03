@@ -1,18 +1,21 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine. See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
-# Use a package of configuration called an orb.
+
 orbs:
-  aws-eks: circleci/aws-eks@1.1.0
-  kubernetes: circleci/kubernetes@0.12.0
-  
-# Orchestrate or schedule a set of jobs
-      
+  aws-eks: circleci/aws-eks@1.0.3
+  kubernetes: circleci/kubernetes@0.11.2
+
+executors:
+  python:
+    docker:
+      - image: circleci/python:3.7.3-stretch
+  aws:
+    docker:
+      - image: amazon/aws-cli
+
 jobs:
   lint:
-  #  docker:
-  #    - image: python:3.9.0-alpine
     docker:
-      - image: circleci/node:13.8.0
+      - image: circleci/python:3.7.3-stretch
     steps:
       - checkout
       - restore_cache:
@@ -36,22 +39,7 @@ jobs:
           command: |
             source venv/bin/activate
             make lint
-            
-  smoke_test:
-    docker : 
-      - image :  alpine:latest
-    steps:
-      - run:
-          name: Smoke Tests
-          command: |
-            if curl -s --head "http://localhost:8080" 
-                then
-            echo "It worked!"
-            else
-              echo "It failed"
-            fi
-            
-  config-image:
+  build-test-push:
     machine: true
     working_directory: ~/app
     steps:
@@ -60,21 +48,23 @@ jobs:
           name: Build, test and push docker image
           command: |
             docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PWD}
-            docker build -t kibnov/container .
-            docker-compose up -d
-            sleep 10
-            docker ps
+            docker build -t kibnov/container -t kibnov/container:${CIRCLE_WORKFLOW_ID:0:7} .
+            docker run -d --rm --name flaskapp -p 8000:8080 kibnov/container:${CIRCLE_WORKFLOW_ID:0:7}
+            sleep 5
+            docker container ls
             export url="http://localhost:8000"
             export response=$(curl -s $url)
             echo "This is response $response"
-            if [[ $response == *"Rolling Deployment V2"* ]]; then              
-              docker stop app_web_1
-            else              
-              docker stop app_web_1
+            if [[ $response == *"Moustafa"* ]]; then
+              docker stop flaskapp
+            else
+              docker stop flaskapp
+              exit 1
             fi
-            docker push kibnov/container
-            
-  test-cluster:
+            echo "CIRCLE CI WORKFLOW ID ${CIRCLE_WORKFLOW_ID:0:7}"
+            docker push kibnov/container:${CIRCLE_WORKFLOW_ID:0:7}
+            docker push kibnov/container:latest
+  create-cluster:
     executor: aws-eks/python3
     parameters:
       cluster-name:
@@ -82,18 +72,20 @@ jobs:
           Name of the EKS cluster
         type: string
     steps:
-      - kubernetes/install
-      - aws-eks/update-kubeconfig-with-authenticator:
-          cluster-name: << parameters.cluster-name >>
       - run:
+          name: Set var
           command: |
-            kubectl get services
-          name: Test cluster
-    #  eks_installation:
-     # - run:
-      #    command: |
-            
-          
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+            aws --version
+            export clusters=$(aws eks list-clusters)
+            if [[ $clusters == *"<< parameters.cluster-name >>"* ]]; then
+              circleci-agent step halt
+            fi
+      - aws-eks/create-cluster:
+          cluster-name: << parameters.cluster-name >>
+
   create-deployment:
     executor: aws-eks/python3
     parameters:
@@ -111,9 +103,9 @@ jobs:
       - kubernetes/create-or-update-resource:
           get-rollout-status: true
           resource-file-path: deployment.yml
-          resource-name: deployment/udacity-capstone
-          
-  test-deployment:
+          resource-name: deployment/aws-capstone
+
+  test-cluster:
     executor: aws-eks/python3
     parameters:
       cluster-name:
@@ -125,40 +117,42 @@ jobs:
       - aws-eks/update-kubeconfig-with-authenticator:
           cluster-name: << parameters.cluster-name >>
       - run:
+          name: Test cluster
           command: |
             kubectl get svc
             kubectl get nodes
             kubectl get deployment
-          name: Test cluster
-
-
 workflows:
-    my-weather:
-      jobs:
-        - lint
-        - config-image
-       # - eks_installation
-        - aws-eks/create-cluster:
-            cluster-name: udacity-capstone-weather
-            requires:
-              - config-image
-        - test-cluster:
-            cluster-name: udacity-capstone-weather
-            requires:
-              - aws-eks/create-cluster
-        - create-deployment:
-           cluster-name:  udacity-capstone-weather
-           requires:
-              - test-cluster
-        - test-deployment:
-            cluster-name:  udacity-capstone-weather
-            requires:
-              - create-deployment              
-        - aws-eks/update-container-image:
-            cluster-name: udacity-capstone-weather
-            container-image-updates: 'udacity-capstone=kibnov/container'
-            get-rollout-status: true
-            record: true
-            requires:
-             - test-deployment
-            resource-name:  deployment/udacity-capstone 
+  capstone:
+    jobs:
+      - lint
+      - build-test-push:
+          requires:
+            - lint
+      - create-cluster:
+          cluster-name:  devops-capstone-project
+          requires:
+            - build-test-push
+
+      - create-deployment:
+          cluster-name:  devops-capstone-project
+          requires:
+            - create-cluster
+
+      - aws-eks/update-container-image:
+          cluster-name: devops-capstone-project
+          container-image-updates: 'aws-capstone=kibnov/container:${CIRCLE_WORKFLOW_ID:0:7}'
+          get-rollout-status: true
+          record: true
+          requires:
+            - create-deployment
+          resource-name:  deployment/aws-capstone
+
+      - test-cluster:
+          cluster-name:  devops-capstone-project
+          requires:
+            - aws-eks/update-container-image
+      - aws-eks/delete-cluster:
+         cluster-name:  devops-capstone-project
+         requires:
+           - test-cluster
