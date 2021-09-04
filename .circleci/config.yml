@@ -86,13 +86,13 @@ jobs:
       - run:
           name: Create EKS-Cluster
           command: |
-            eksctl create cluster --name udacity-capstone-6 --managed --node-type "t2.small" --nodes 2
+            eksctl create cluster --name udacity-capstone-7 --managed --node-type "t2.small" --nodes 2
   deployment:
     executor: aws-eks/python3
     parameters:
       cluster-name:
         description: |
-          udacity-capstone-6
+          udacity-capstone-7
         type: string
     steps:
       - checkout
@@ -110,7 +110,7 @@ jobs:
     parameters:
       cluster-name:
         description: |
-          udacity-capstone-6
+          udacity-capstone-7
         type: string
     steps:
       - kubernetes/install
@@ -131,11 +131,11 @@ workflows:
           requires: 
             - linting-testing
       - deployment:
-          cluster-name: udacity-capstone-6
+          cluster-name: udacity-capstone-7
           requires:
              - build
       - aws-eks/update-container-image:
-          cluster-name: udacity-capstone-6
+          cluster-name: udacity-capstone-7
           container-image-updates: capstone-backend=186999742423.dkr.ecr.us-west-2.amazonaws.com/kibnov:latest
           post-steps:
               - kubernetes/delete-resource:
@@ -147,11 +147,11 @@ workflows:
               - deployment
           resource-name: deployment/capstone-deployment
       - test-cluster:
-          cluster-name: udacity-capstone-6
+          cluster-name: udacity-capstone-7
           requires:
               - deployment
               #- aws-eks/update-container-image
       - aws-eks/delete-cluster:
-          cluster-name: udacity-capstone-6
+          cluster-name: udacity-capstone-7
           requires:
             - test-cluster
