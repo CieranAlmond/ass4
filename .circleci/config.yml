@@ -86,13 +86,13 @@ jobs:
       - run:
           name: Create EKS-Cluster
           command: |
-            eksctl create cluster --name udacity-capstone-2 --managed --node-type "t2.small" --nodes 2
+            eksctl create cluster --name udacity-capstone-3 --managed --node-type "t2.small" --nodes 2
   deployment:
     executor: aws-eks/python3
     parameters:
       cluster-name:
         description: |
-          udacity-capstone
+          udacity-capstone-3
         type: string
     steps:
       - checkout
@@ -110,7 +110,7 @@ jobs:
     parameters:
       cluster-name:
         description: |
-          udacity-capstone
+          udacity-capstone-3
         type: string
     steps:
       - kubernetes/install
@@ -131,7 +131,7 @@ workflows:
           requires: 
             - linting-testing
       - deployment:
-          cluster-name: udacity-capstone
+          cluster-name: udacity-capstone-3
           requires:
              - build
       #- aws-eks/update-container-image:
@@ -147,11 +147,11 @@ workflows:
               #- deployment
           #resource-name: deployment/capstone-deployment
       - test-cluster:
-          cluster-name: udacity-capstone
+          cluster-name: udacity-capstone-3
           requires:
               - deployment
               #- aws-eks/update-container-image
       - aws-eks/delete-cluster:
-          cluster-name: udacity-capstone
+          cluster-name: udacity-capstone-3
           requires:
             - test-cluster
